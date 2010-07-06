@@ -1,0 +1,431 @@
+<?php 
+// $Id: dropdown_tabs.module,v 1.1 2009/12/07 02:05:03 collectivecolors Exp $ 
+/**
+ * Implementation of hook_block()
+ * 
+ * This block, once enabled, will output Drupal site tabs in
+ * A dropdown select box.  Be sure to configure it! Defaults right.
+ * 
+ * @param string $op
+ * @param int $delta
+ * @param array $edit
+ * @return array $block or $form
+ */
+function dropdown_tabs_block($op = 'list', $delta = 0, $edit = array()) {
+	if ($op == 'list') {
+    $block[0]['info'] = t('Dropdown tabs');
+    return $block;
+  }
+  elseif ($op == 'view') {
+  	// Block title
+    $block['subject'] = t('Action items');
+    
+    // Block content 
+    $block['content'] = drupal_get_form('dropdown_tabs_form');
+    
+    return $block;
+  }	
+  elseif ($op == 'configure') {
+  	$form = array();
+  	$form['dropdown_tabs'] = array(
+  		'#type' => 'fieldset',
+  		'#weight' => -15,
+  		'#collapsible' => TRUE,
+  		'#collapsed' => FALSE,
+  	); 
+  	$form['dropdown_tabs']['dropdown_tabs_layout'] = array(
+  		'#type' => 'radios',
+  		'#title' => t('Layout'),
+  		'#default_value' => variable_get('dropdown_tabs_layout', 'select'),
+  		'#options' => array('select' => t('Select boxes only'), 'hybrid' => t('Hybrid layout'))  	
+  	);
+  	$form['dropdown_tabs']['dropdown_tabs_alignment'] = array(
+  		'#type' => 'radios',
+  		'#title' => t('Alignment'),
+  		'#default_value' => variable_get('dropdown_tabs_alignment', 0),
+  		'#options' => array(t('Align right'), t('Align left'), t('No alignment'))
+  	);  	
+  	
+  	return $form;
+  }
+  elseif ($op == 'save') {
+	  // Have Drupal save the string to the database.
+	  variable_set('dropdown_tabs_layout', $edit['dropdown_tabs_layout']);
+  	variable_set('dropdown_tabs_alignment', $edit['dropdown_tabs_alignment']);
+    return;
+  }
+}
+
+/**
+ * Helper to add JavaScript and css to the page
+ * 
+ * @return NULL
+ */
+function dropdown_tabs_init() {
+	$path = drupal_get_path('module', 'dropdown_tabs');
+	drupal_add_js($path . '/dropdown_tabs.js');	
+	drupal_add_css($path . '/dropdown_tabs.css');
+}
+
+/**
+ * The dropdown tabs form that is injected into block 
+ * 
+ * @return array $form
+ */
+function dropdown_tabs_form() {
+	$form = array();
+	
+	$options0 = dropdown_local_tasks(0);
+	//dpm($options0);
+	if (is_array($options0) && count($options0)) {
+		
+		// Class to hide top selectbox if hybrid mode is selected
+		if ($layout = variable_get('dropdown_tabs_layout', 'select') == 'hybrid') { $top_class = 'hidden'; }
+		else { $top_class = ''; }
+		
+		$form['local_tasks_0'] = array(
+			'#id' => 'local_tasks_0',
+			'#attributes' => array('class' => 'dropdown-tabs-select-box '.$top_class),
+			'#type' => 'select',
+			'#default_value' => dropdown_tabs_form_default($options0),
+			'#options' => $options0,
+			'#required' => TRUE,
+		);
+		
+		if($layout == 'hybrid') {
+			$options0 = dropdown_tabs_hybrid_options($options0);
+			$form['local_tasks_0_hybrid'] = array(
+				'#id' => 'local_tasks_0_hybrid',
+				'#attributes' => array('class' => 'dropdown-tabs-hybrid-links tabs'),
+				'#value' => theme('item_list', $options0),
+			);
+		}
+		
+		$options1   = dropdown_local_tasks(1);
+		//dpm($options1);
+		$use_second = is_array($options1) && count($options1);
+		if ($use_second) { 
+			$form['local_tasks_1'] = array(
+				'#id' => 'local_tasks_1',
+				'#attributes' => array('class' => 'dropdown-tabs-select-box '.$top_class),
+				'#type' => 'select',
+				'#default_value' => dropdown_tabs_form_default($options1),
+				'#options' => $options1,
+				'#required' => TRUE,
+			);
+		}
+		
+		if($layout == 'hybrid' && $use_second) { 
+			$options1 = dropdown_tabs_hybrid_options($options1);
+			$form['local_tasks_1_hybrid'] = array(
+				'#id' => 'local_tasks_1_hybrid',
+				'#attributes' => array('class' => 'dropdown-tabs-hybrid-links tabs'),
+				'#value' => theme('item_list', $options1),
+			);
+		}
+		
+		$form['submit'] = array(
+			'#id' => 'dropdown-tabs-submit',
+			'#type' => 'submit',
+			'#value' => t('Go'),
+		);
+	}
+	return $form;
+}
+
+/**
+ * Implementation of hook_theme()
+ * 
+ * @param unknown_type $existing
+ * @param unknown_type $type
+ * @param unknown_type $theme
+ * @param unknown_type $path
+ * @return unknown_type
+ */
+function dropdown_tabs_theme($existing, $type, $theme, $path) {
+  return array(
+    'dropdown_tabs_form' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'dropdown_tabs_form_right' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'dropdown_tabs_form_left' => array(
+      'arguments' => array('form' => NULL),
+    ),
+    'dropdown_tabs_form_center' => array(
+      'arguments' => array('form' => NULL),
+    ),
+	);
+}
+
+
+/**
+ * Theme function for the dropdown tabs form that float right. 
+ * 
+ * @param array $form
+ * @return string $output
+ */
+function theme_dropdown_tabs_form_right($form) {
+	/* Submit button comes first when floating right */
+  $output = '<div id="dropdown-tabs-submit" class="dt-right">'.drupal_render($form['submit']).'</div>';
+      
+  /* Secondary tabs */
+  if ($form['local_tasks_1']) { 
+    $output .= '<div id="secondary-dropdown-tabs" class="dt-right">'.drupal_render($form['local_tasks_1']).'</div>';
+  }
+      
+  /* Primary tabs */
+  $output .= '<div id="primary-dropdown-tabs" class="dt-right">'.drupal_render($form['local_tasks_0']).'</div>';
+
+  return $output.drupal_render($form);
+}
+
+
+/**
+ * Theme function for the dropdown tabs form that float left. 
+ * 
+ * @param array $form
+ * @return string $output
+ */
+function theme_dropdown_tabs_form_left($form) {
+  /* Primary tabs come first when floating left */
+  $output = '<div id="primary-dropdown-tabs" class="dt-left">'.drupal_render($form['local_tasks_0']).'</div>';
+      
+  /* Secondary tabs */
+  if ($form['local_tasks_1']) { 
+    $output .= '<div id="secondary-dropdown-tabs" class="dt-left">'.drupal_render($form['local_tasks_1']).'</div>';
+  }
+      
+  /* Submit button */
+  $output .= '<div id="dropdown-tabs-submit" class="dt-left">'.drupal_render($form['submit']).'</div>';
+  
+  return $output.drupal_render($form);
+}
+
+
+/**
+ * Theme function for the dropdown tabs form that does not float. 
+ * 
+ * @param array $form
+ * @return string $output
+ */
+function theme_dropdown_tabs_form_center($form) {
+  /* Primary tabs come first when floating left */
+  $output = '<div id="primary-dropdown-tabs" class="dt-center">'.drupal_render($form['local_tasks_0']).'</div>';
+      
+  /* Secondary tabs */
+  if ($form['local_tasks_1']) { 
+    $output .= '<div id="secondary-dropdown-tabs" class="dt-center">'.drupal_render($form['local_tasks_1']).'</div>';
+  }
+      
+  /* Submit button */
+  $output .= '<div id="dropdown-tabs-submit" class="dt-center">'.drupal_render($form['submit']).'</div>';
+  
+  return $output . drupal_render($form);
+}
+
+
+/**
+ * Theme function for the dropdown tabs form.  This theme function allows you to 
+ * manipulate any form alignment displays.  
+ * 
+ * @param array $form
+ * @return string $output
+ */
+function theme_dropdown_tabs_form($form) {
+	$output = '';
+	$alignment = variable_get('dropdown_tabs_alignment', 1);
+	switch ($alignment) {
+		case 0:
+			/* Floats right */
+			$output .= theme('dropdown_tabs_form_right', $form);
+			break;
+			
+		case 1:
+			/* Floats left */
+			$output .= theme('dropdown_tabs_form_right', $form);
+			break;
+		
+		case 2: default:
+			/* No floating */
+			$output .= theme('dropdown_tabs_form_center', $form);
+			break;
+	}
+	return $output;
+}
+
+/**
+ * Function used to identify the default menu item from the list of options.
+ * 
+ * @param array $options
+ * @return string $default
+ */
+function dropdown_tabs_form_default($options) {
+	$default = '';
+	if ($options != '') {
+		foreach ($options as $href => $title) {
+			if (preg_match('/^' . str_replace('/', '\/', $href) . '/', $_GET['q'])) {
+				$default = $href;
+				break;
+			}
+		}
+	}
+	return $default;
+}
+
+/**
+ * Implementation of hook_form_submit()
+ *  
+ * @param array $form
+ * @param array $form_state
+ * @return NULL
+ */
+function dropdown_tabs_form_submit($form, &$form_state) {
+	if ($form['local_tasks_0']['#default_value'] != $form_state['values']['local_tasks_0']) {
+		drupal_goto($form_state['values']['local_tasks_0']);
+	}
+	elseif ($form_state['values']['local_tasks_1']) {
+		drupal_goto($form_state['values']['local_tasks_1']);	
+	}
+	drupal_goto($form_state['values']['local_tasks_0']);
+}
+
+/**
+ * Should be in url => title format to begin with!
+ * @param $options
+ * @return links!
+ */
+function dropdown_tabs_hybrid_options($options) {
+	$new = array();
+	foreach ($options as $url => $option) {
+		$new[] = l($option, $url);
+	}
+	return $new;
+}
+
+/**
+ * A special implementation of menu_local_tasks
+ * 
+ * @param $level
+ * @return unknown_type
+ */
+function dropdown_local_tasks($level = 0) {
+  static $tabs;
+
+  if (!isset($tabs)) {
+    $tabs = array();
+
+    $router_item = menu_get_item();
+    if (!$router_item || !$router_item['access']) {
+      return '';
+    }
+    // Get all tabs and the root page.
+    $result = db_query("SELECT * FROM {menu_router} WHERE tab_root = '%s' ORDER BY weight, title", $router_item['tab_root']);
+    
+    $test = array();
+    while($item = db_fetch_array($result)) {
+    	$test[] = $item;
+    }
+    dpm($test);
+    
+    $map = arg();
+    $children = array();
+    $tasks = array();
+    
+    
+    while ($item = db_fetch_array($result)) {
+      _menu_translate($item, $map, TRUE);
+      if ($item['tab_parent']) {
+        // All tabs, but not the root page.
+        $children[$item['tab_parent']][$item['path']] = $item;
+      }
+      // Store the translated item for later use.
+      $tasks[$item['path']] = $item;
+    }
+
+    // Find all tabs below the current path.
+    $path = $router_item['path'];
+    // Tab parenting may skip levels, so the number of parts in the path may not
+    // equal the depth. Thus we use the $depth counter (offset by 1000 for ksort).
+    $depth = 1001;
+    while (isset($children[$path])) {
+      $tabs_current = '';
+      $next_path = '';
+      $count = 0;
+      foreach ($children[$path] as $item) {
+        if ($item['access']) {
+          $count++;
+          // The default task is always active.
+          if ($item['type'] == MENU_DEFAULT_LOCAL_TASK) {
+            // Find the first parent which is not a default local task.
+            for ($p = $item['tab_parent']; $tasks[$p]['type'] == MENU_DEFAULT_LOCAL_TASK; $p = $tasks[$p]['tab_parent']);
+            
+            $tabs_current[$item['href']] = $item['title'];
+            $next_path = $item['path'];
+          }
+          else {
+            $tabs_current[$item['href']] = $item['title'];
+          }
+        }
+      }
+      $path = $next_path;
+      $tabs[$depth]['count'] = $count;
+      $tabs[$depth]['output'] = $tabs_current;
+      $depth++;
+    }
+
+    // Find all tabs at the same level or above the current one.
+    $parent = $router_item['tab_parent'];
+    $path = $router_item['path'];
+    $current = $router_item;
+    $depth = 1000;
+    while (isset($children[$parent])) {
+      $tabs_current = '';
+      $next_path = '';
+      $next_parent = '';
+      $count = 0;
+      foreach ($children[$parent] as $item) {
+        if ($item['access']) {
+          $count++;
+          
+          $href = $title = '';
+          
+          if ($item['type'] == MENU_DEFAULT_LOCAL_TASK) {
+            // Find the first parent which is not a default local task.
+            for ($p = $item['tab_parent']; $tasks[$p]['type'] == MENU_DEFAULT_LOCAL_TASK; $p = $tasks[$p]['tab_parent']);
+            
+            $href = $item['href'];
+            $title = $item['title'];
+          }
+          else {
+            $href = $item['href'];
+            $title = $item['title'];
+          }
+          // We check for the active tab.
+          if ($item['path'] == $path) {
+            $tabs_current[$href] = $title;
+            $next_path = $item['tab_parent'];
+            if (isset($tasks[$next_path])) {
+              $next_parent = $tasks[$next_path]['tab_parent'];
+            }
+          }
+          else {
+            $tabs_current[$href] = $title;
+          }
+        }
+      }
+      $path = $next_path;
+      $parent = $next_parent;
+      $tabs[$depth]['count'] = $count;
+      $tabs[$depth]['output'] = $tabs_current;
+      $depth--;
+    }
+    // Sort by depth.
+    ksort($tabs);
+    // Remove the depth, we are interested only in their relative placement.
+    $tabs = array_values($tabs);
+  }
+
+  return (isset($tabs[$level]) && $tabs[$level]['count'] > 1) ? $tabs[$level]['output'] : array();
+}

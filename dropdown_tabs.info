@@ -1,0 +1,7 @@
+; $Id: dropdown_tabs.info,v 1.1 2009/12/07 02:05:03 collectivecolors Exp $
+
+name = Dropdown tabs
+description = Provides a JavaScript enabled select box interface for Local tasks
+package = Other
+version = VERSION
+core = 6.x

@@ -1,0 +1,22 @@
+/* $Id: dropdown_tabs.css,v 1.1 2009/12/07 02:05:03 collectivecolors Exp $ */
+
+.dt-right {
+	float: right;
+	display: inline;
+}
+.dt-left {
+	float: left;
+	display: inline;
+}
+
+.dt-left .form-item,
+.dt-right .form-item {
+	margin: 10px 5px 10px 0;
+	padding: 0;
+}
+.dt-left .form-submit,
+.dt-right .form-submit {
+	margin-top: 8px; /* over-rides form-item margin-top */
+}
+
+#dropdown-tabs-form select option { display: block; }
